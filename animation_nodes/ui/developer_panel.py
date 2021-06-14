@@ -35,6 +35,9 @@ class DeveloperPanel(bpy.types.Panel):
 
         layout.prop(preferences.nodeColors, "nodeColorMode", text = "Color Mode")
 
+        col = layout.column()
+        self.drawTimelineSettings(col, preferences)
+
     def drawExecutionCodeSettings(self, layout, preferences):
         executionCode = preferences.executionCode
         layout.label(text = "Execution Code:")
@@ -65,3 +68,7 @@ class DeveloperPanel(bpy.types.Panel):
         props.function = profiling.function
         props.sort = profiling.sort
         props.output = profiling.output
+
+    def drawTimelineSettings(self, layout, preferences):
+        col = layout.column()
+        props = col.operator("an.experimental_timeline_in_the_world", text = "(Experimental) Use Timeline In The World", icon = "PREVIEW_RANGE")

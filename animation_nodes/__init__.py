@@ -38,6 +38,8 @@ bl_info = {
 import os
 import sys
 import traceback
+import bpy
+from bpy.app.handlers import persistent
 from os.path import dirname, join, abspath, basename
 currentDirectory = dirname(abspath(__file__))
 addonsDirectory = dirname(currentDirectory)
@@ -162,6 +164,35 @@ if "test_compile" not in globals():
 # register
 ##################################
 
+@persistent
+def animation_handler(scene):
+    for tree in bpy.data.node_groups:
+        if tree.bl_idname == "an_AnimationNodeTree":
+            if (tree.animation_data != None):
+                for curve in tree.animation_data.action.fcurves:
+                    if curve.data_path.endswith(".value"):
+                        socket = curve.data_path.removesuffix(".value")
+
+                        # evaluate fcurve at current frame
+                        v = curve.evaluate(bpy.context.scene.frame_current)
+                        data = eval("tree." + curve.data_path)
+                        # overwrite if changed
+                        if hasattr(data, "__getitem__"):
+                            if data[curve.array_index] != v:
+                                data[curve.array_index] = v
+                        else:
+                            soc = eval("tree." + socket)
+                            if soc.value != v:
+                                soc.value = v
+
+@persistent
+def load_handler(dummy):
+    if animation_handler not in bpy.app.handlers.frame_change_pre:
+        print("add animation_handler")
+        bpy.app.handlers.frame_change_pre.append(animation_handler)
+
+##################################
+
 from . import auto_load
 auto_load.init()
 
@@ -170,8 +201,19 @@ updateSocketInfo()
 
 def register():
     auto_load.register()
+
+    if not hasattr(bpy.data, "node_groups"):
+        bpy.app.handlers.load_post.append(load_handler)
+
     print("Registered Animation Nodes")
 
 def unregister():
     auto_load.unregister()
+
+    if load_handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(load_handler)
+
+    if animation_handler in bpy.app.handlers.frame_change_pre:
+        bpy.app.handlers.frame_change_pre.remove(animation_handler)
+
     print("Unregistered Animation Nodes")
