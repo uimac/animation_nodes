@@ -164,26 +164,40 @@ if "test_compile" not in globals():
 # register
 ##################################
 
+def eval_curves(tree, curves):
+    from bpy.app import driver_namespace
+    for x in driver_namespace:
+        locals()[x] = driver_namespace[x]
+
+    for curve in curves:
+        if curve.data_path.endswith(".value"):
+            socket = curve.data_path.removesuffix(".value")
+
+            if curve.driver != None:
+                frame = bpy.context.scene.frame_current
+                v = eval(curve.driver.expression)
+            else:
+                # evaluate fcurve at current frame
+                v = curve.evaluate(bpy.context.scene.frame_current)
+            data = eval("tree." + curve.data_path)
+            # overwrite if changed
+            if hasattr(data, "__getitem__"):
+                if data[curve.array_index] != v:
+                    data[curve.array_index] = v
+            else:
+                soc = eval("tree." + socket)
+                if soc.value != v:
+                    soc.value = v
+
 @persistent
 def animation_handler(scene):
     for tree in bpy.data.node_groups:
         if tree.bl_idname == "an_AnimationNodeTree":
             if (tree.animation_data != None):
-                for curve in tree.animation_data.action.fcurves:
-                    if curve.data_path.endswith(".value"):
-                        socket = curve.data_path.removesuffix(".value")
-
-                        # evaluate fcurve at current frame
-                        v = curve.evaluate(bpy.context.scene.frame_current)
-                        data = eval("tree." + curve.data_path)
-                        # overwrite if changed
-                        if hasattr(data, "__getitem__"):
-                            if data[curve.array_index] != v:
-                                data[curve.array_index] = v
-                        else:
-                            soc = eval("tree." + socket)
-                            if soc.value != v:
-                                soc.value = v
+                if tree.animation_data.action != None:
+                    eval_curves(tree, tree.animation_data.action.fcurves)
+                if tree.animation_data.drivers != None:
+                    eval_curves(tree, tree.animation_data.drivers)
 
 @persistent
 def load_handler(dummy):
